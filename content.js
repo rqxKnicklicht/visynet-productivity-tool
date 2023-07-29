@@ -1,4 +1,6 @@
-const API_BASE_URL = "https://rls7a91cpd.execute-api.eu-central-1.amazonaws.com/dev/"
+const API_BASE_URL =
+  "https://rls7a91cpd.execute-api.eu-central-1.amazonaws.com/dev/";
+let products;
 
 function createPopup(product) {
   // Create a new div for the Popup
@@ -40,22 +42,26 @@ function createPopup(product) {
   // Create a button to close the Popup
   const sendButton = document.createElement("button");
   sendButton.textContent = "Speichern";
-  sendButton.onclick = function() {
+  sendButton.onclick = function () {
     fetch(API_BASE_URL + "products/" + product["id"], {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({asin: asin.value, current_amazon_price: currentAmazonPrice.value, current_amazon_price_timestamp: new Date().toISOString()})
+      body: JSON.stringify({
+        asin: asin.value,
+        current_amazon_price: currentAmazonPrice.value,
+        current_amazon_price_timestamp: new Date().toISOString(),
+      }),
     })
-    .then(response => response.json())
-    .then(data => console.log(data))
-    .catch((error) => console.error("Error:", error));
+      .then((response) => response.json())
+      .then((data) => console.log(data))
+      .catch((error) => console.error("Error:", error));
   };
   const closeButton = document.createElement("button");
   closeButton.textContent = "Schließen";
-  closeButton.onclick = function() {
-      document.body.removeChild(popup);
+  closeButton.onclick = function () {
+    document.body.removeChild(popup);
   };
 
   // Add the labels, text fields, and the close button to the Popup
@@ -72,28 +78,25 @@ function createPopup(product) {
   document.body.appendChild(popup);
 }
 
-
-
 function getButton(buttonAttributes) {
-    let button = document.createElement("button");
-    button.style.backgroundColor = buttonAttributes.backgroundColor;
-    if("functionToExecute" in buttonAttributes) {
-      button.addEventListener("click", buttonAttributes.functionToExecute);
-    }
-    if("link" in buttonAttributes) {
-    button.addEventListener("click", function() {
+  let button = document.createElement("button");
+  button.style.backgroundColor = buttonAttributes.backgroundColor;
+  if ("functionToExecute" in buttonAttributes) {
+    button.addEventListener("click", buttonAttributes.functionToExecute);
+  }
+  if ("link" in buttonAttributes) {
+    button.addEventListener("click", function () {
       window.open(buttonAttributes.link, "_blank");
     });
   }
-    button.innerHTML = "&#9432;";
-    return button;
+  button.innerHTML = "&#9432;";
+  return button;
 }
 
 function getButtonContainer(buttons) {
-  
   let div = document.createElement("div");
   div.className = "buttons-container";
-  
+
   for (let i = 0; i < buttons.length; i++) {
     let button = getButton(buttons[i]);
     div.appendChild(button);
@@ -101,35 +104,40 @@ function getButtonContainer(buttons) {
   return div;
 }
 
-function extractOriginalNumber(element){
+function extractOriginalNumber(element) {
   let listItems = element.querySelectorAll("ul li");
-  for(let j = 0; j < listItems.length; j++) {
-      if(listItems[j].textContent.includes("ORIG.") || listItems[j].textContent.includes("Origiinal") || listItems[j].textContent.includes("ORIGINALE") || listItems[j].textContent.includes("ORIGINAL")) {
-        return listItems[j].textContent.split(" ")[1];
-      }
+  for (let j = 0; j < listItems.length; j++) {
+    if (
+      listItems[j].textContent.includes("ORIG.") ||
+      listItems[j].textContent.includes("Origiinal") ||
+      listItems[j].textContent.includes("ORIGINALE") ||
+      listItems[j].textContent.includes("ORIGINAL")
+    ) {
+      return listItems[j].textContent.split(" ")[1];
+    }
   }
   return null;
 }
 
-function extractProductId(element){
+function extractProductId(element) {
   return element.querySelector("a[id]").id;
 }
 
-function extractProductTitle(element){
+function extractProductTitle(element) {
   return element.querySelector("a[title]").title;
 }
 
-function writeProductToDB(id, title){
+function writeProductToDB(id, title) {
   fetch(API_BASE_URL + "products", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({products: [{id: id, name: title}]})
+    body: JSON.stringify({ products: [{ id: id, name: title }] }),
   })
-  .then(response => response.json())
-  .then(data => console.log(data))
-  .catch((error) => console.error("Error:", error));
+    .then((response) => response.json())
+    .then((data) => console.log(data))
+    .catch((error) => console.error("Error:", error));
 }
 
 async function getProduct(id) {
@@ -142,111 +150,114 @@ async function getProduct(id) {
   }
 }
 
-  // let colors = ["red", "green"];
-  //     let randomColor = colors[Math.floor(Math.random() * colors.length)];
-  //     let imageElement = elements[i].querySelector("img");
-  //     if (imageElement) {
-  //         imageElement.style.boxShadow = "0 0 0 1px " + randomColor;
-  //     }
+// let colors = ["red", "green"];
+//     let randomColor = colors[Math.floor(Math.random() * colors.length)];
+//     let imageElement = elements[i].querySelector("img");
+//     if (imageElement) {
+//         imageElement.style.boxShadow = "0 0 0 1px " + randomColor;
+//     }
 
-function getLiItemById(id){
+function getLiItemById(id) {
   let aTag = document.getElementById(id);
   return aTag.parentNode;
 }
 
-
-function getLatestProductElements(){
+function getLatestProductElements() {
   let galleries = document.querySelectorAll(".gallery-c");
   let lastGallery = galleries[galleries.length - 1];
   return lastGallery.querySelectorAll(".zindex.draggable");
 }
 
-function getLatestIds(){
+function getLatestIds() {
   let latestElements = getLatestProductElements();
   let ids = [];
-  for(let i = 0; i < latestElements.length; i++) {
+  for (let i = 0; i < latestElements.length; i++) {
     ids.push(extractProductId(latestElements[i]));
   }
   return ids;
 }
 
 function hashCode(s) {
-  let hash = 0, i, chr;
+  let hash = 0,
+    i,
+    chr;
   for (i = 0; i < s.length; i++) {
-    chr   = s.charCodeAt(i);
-    hash  = ((hash << 5) - hash) + chr;
+    chr = s.charCodeAt(i);
+    hash = (hash << 5) - hash + chr;
     hash |= 0; // Convert to 32bit integer
   }
   return hash;
 }
 
-function generateIdentifierForButtons(buttons){
+function generateIdentifierForButtons(buttons) {
   let identifier = "";
-  for(let i = 0; i < buttons.length; i++){
+  for (let i = 0; i < buttons.length; i++) {
     identifier += buttons[i].backgroundColor + buttons[i].link;
   }
   // Create a hash of the identifier string to use as an id
   return "bc_" + hashCode(identifier);
 }
 
-function setButtonsForProduct(id, buttons){
+function setButtonsForProduct(id, buttons) {
   let li = getLiItemById(id);
   let buttonsContainer = getButtonContainer(buttons);
   let uniqueId = generateIdentifierForButtons(buttons);
   buttonsContainer.id = uniqueId;
   let exisingButtonsContainer = li.querySelector("#" + uniqueId);
-  if(!exisingButtonsContainer) {
+  if (!exisingButtonsContainer) {
     li.appendChild(buttonsContainer);
   }
 }
 
-function getAmazonLink(asin, originalNumber){
-  if(asin != "") {
+function getAmazonLink(asin, originalNumber) {
+  if (asin != "") {
     return "https://www.amazon.de/dp/" + asin;
   } else {
     return "https://www.amazon.de/s?k=" + originalNumber;
   }
 }
 
-
 async function getAllProducts() {
   const reponse = await fetch(API_BASE_URL + "products", {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
-    }
+    },
   });
   const data = await reponse.json();
-  console.log(data.products)
+  console.log(data.products);
   return data.products;
 }
 
-async function main(){
-  let products = await getAllProducts();
-  const resizeObserver = new ResizeObserver(async function () 
-    {
-      products = await getAllProducts();
-      console.log("Resizer triggered");
-      let latestIds = getLatestIds();
-      for(let i = 0; i < latestIds.length; i++) {
-        let currentProduct = products[latestIds[i]] || {};
-        let originalNumber = extractOriginalNumber(getLiItemById(latestIds[i]));
-        setButtonsForProduct(latestIds[i], [{backgroundColor: "red", link: getAmazonLink(currentProduct.asin || "", originalNumber)}, {backgroundColor: "green", functionToExecute: () => createPopup(currentProduct)}]);
-        let infoButton = document.createElement("button");
-        infoButton.innerHTML = "&#9432; Info";
-        document.body.appendChild(infoButton);
-
-      }
+async function main() {
+  products = await getAllProducts();
+  const resizeObserver = new ResizeObserver(async function () {
+    products = await getAllProducts();
+    console.log("Resizer triggered");
+    let latestIds = getLatestIds();
+    for (let i = 0; i < latestIds.length; i++) {
+      let currentProduct = products[latestIds[i]] || {};
+      let originalNumber = extractOriginalNumber(getLiItemById(latestIds[i]));
+      setButtonsForProduct(latestIds[i], [
+        {
+          backgroundColor: "red",
+          link: getAmazonLink(currentProduct.asin || "", originalNumber),
+        },
+        {
+          backgroundColor: "green",
+          functionToExecute: () => createPopup(currentProduct),
+        },
+      ]);
     }
-  );
+  });
   resizeObserver.observe(document.body);
 }
-  function insertStyleElement() {
- // Create a new style element
- let style = document.createElement("style");
+function insertStyleElement() {
+  // Create a new style element
+  let style = document.createElement("style");
 
- // Define your CSS inside the style element
- style.innerHTML = `
+  // Define your CSS inside the style element
+  style.innerHTML = `
    .draggable .buttons-container {
      display: flex;
      flex-direction: row;
@@ -259,10 +270,10 @@ async function main(){
    }
  `;
 
- // Append the style element to the head of the document
- document.head.appendChild(style);
-};
+  // Append the style element to the head of the document
+  document.head.appendChild(style);
+}
 window.onload = () => {
   insertStyleElement();
-  main();  // Invoke haupt function here
-}
+  main(); // Invoke haupt function here
+};
