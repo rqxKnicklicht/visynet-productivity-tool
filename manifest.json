@@ -1,0 +1,13 @@
+{
+    "manifest_version": 3,
+    "name": "Visynet productivity tool",
+    "version": "1.0",
+    "description": "Adds various productivity tools to the Visynet online store.",
+    "content_scripts": [
+      {
+        "matches": ["https://*.visynet.be/*"],
+        "js": ["content.js"]
+      }
+    ],
+    "permissions": ["activeTab", "storage"]
+  }
