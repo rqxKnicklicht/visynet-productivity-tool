@@ -176,13 +176,20 @@ function getLatestIds() {
   }
   return ids;
 }
-
-function hashCode(s) {
+/**
+ * This function calculates a hash code for a given input string. It uses a
+ * hashing known as djb2."
+ *
+ * @param {String} string The input string to be hashed.
+ *
+ * @returns {Number} The computed hash code of the input string as a 32-bit integer.
+ */
+function hashCode(string) {
   let hash = 0,
     i,
     chr;
-  for (i = 0; i < s.length; i++) {
-    chr = s.charCodeAt(i);
+  for (i = 0; i < string.length; i++) {
+    chr = string.charCodeAt(i);
     hash = (hash << 5) - hash + chr;
     hash |= 0; // Convert to 32bit integer
   }
@@ -209,6 +216,18 @@ function setButtonsForProduct(id, buttons) {
   }
 }
 
+/**
+ * This function generates a specific Amazon product link based on an ASIN number,
+ * or a generic search link based on an original number if the ASIN is not provided.
+ *
+ * @param {String} asin - The Amazon Standard Identification Number (ASIN) of the product.
+ * @param {String} originalNumber - A fallback number used for searching on Amazon
+ *                                  when the ASIN is not provided.
+ *
+ * @returns {String} - A URL pointing to the specific product on Amazon.de if an ASIN
+ *                      is provided. If ASIN is not provided, it returns a URL that
+ *                      initiates a search on Amazon.de with the provided original number.
+ */
 function getAmazonLink(asin, originalNumber) {
   if (asin != "") {
     return "https://www.amazon.de/dp/" + asin;
@@ -217,6 +236,15 @@ function getAmazonLink(asin, originalNumber) {
   }
 }
 
+/**
+ * This asynchronous function fetches all products from a predefined API endpoint and
+ * returns them after parsing the JSON response. It uses the HTTP GET method to request data
+ * and outputs the resulting products to the console.
+ *
+ * @returns {Promise<Object>} - A promise that resolves to an array of product data retrieved
+ *                             from the API. The promise will be fulfilled with the product
+ *                             data after the API response has been received and parsed.
+ */
 async function getAllProducts() {
   const reponse = await fetch(API_BASE_URL + "products", {
     method: "GET",
