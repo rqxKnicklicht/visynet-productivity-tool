@@ -106,14 +106,14 @@ function getButtonContainer(buttons) {
 
 function extractOriginalNumber(element) {
   let listItems = element.querySelectorAll("ul li");
-  for (let j = 0; j < listItems.length; j++) {
+  for (const element of listItems) {
     if (
-      listItems[j].textContent.includes("ORIG.") ||
-      listItems[j].textContent.includes("Origiinal") ||
-      listItems[j].textContent.includes("ORIGINALE") ||
-      listItems[j].textContent.includes("ORIGINAL")
+      element.textContent.includes("ORIG.") ||
+      element.textContent.includes("Origiinal") ||
+      element.textContent.includes("ORIGINALE") ||
+      element.textContent.includes("ORIGINAL")
     ) {
-      return listItems[j].textContent.split(" ")[1];
+      return element.textContent.split(" ")[1];
     }
   }
   return null;
@@ -261,12 +261,12 @@ async function main() {
   products = await getAllProducts();
   const resizeObserver = new ResizeObserver(async function () {
     products = await getAllProducts();
-    console.log("Resizer triggered");
+    console.debug("Resizer triggered");
     let latestIds = getLatestIds();
-    for (let i = 0; i < latestIds.length; i++) {
-      let currentProduct = products[latestIds[i]] || {};
-      let originalNumber = extractOriginalNumber(getLiItemById(latestIds[i]));
-      setButtonsForProduct(latestIds[i], [
+    for (const element of latestIds) {
+      let currentProduct = products[element] || {};
+      let originalNumber = extractOriginalNumber(getLiItemById(element));
+      setButtonsForProduct(element, [
         {
           backgroundColor: "red",
           link: getAmazonLink(currentProduct.asin || "", originalNumber),
