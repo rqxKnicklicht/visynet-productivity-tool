@@ -97,8 +97,8 @@ function getButtonContainer(buttons) {
   let div = document.createElement("div");
   div.className = "buttons-container";
 
-  for (let i = 0; i < buttons.length; i++) {
-    let button = getButton(buttons[i]);
+  for (const element of buttons) {
+    let button = getButton(element);
     div.appendChild(button);
   }
   return div;
@@ -106,14 +106,14 @@ function getButtonContainer(buttons) {
 
 function extractOriginalNumber(element) {
   let listItems = element.querySelectorAll("ul li");
-  for (let j = 0; j < listItems.length; j++) {
+  for (const element of listItems) {
     if (
-      listItems[j].textContent.includes("ORIG.") ||
-      listItems[j].textContent.includes("Origiinal") ||
-      listItems[j].textContent.includes("ORIGINALE") ||
-      listItems[j].textContent.includes("ORIGINAL")
+      element.textContent.includes("ORIG.") ||
+      element.textContent.includes("Origiinal") ||
+      element.textContent.includes("ORIGINALE") ||
+      element.textContent.includes("ORIGINAL")
     ) {
-      return listItems[j].textContent.split(" ")[1];
+      return element.textContent.split(" ")[1];
     }
   }
   return null;
@@ -123,17 +123,17 @@ function extractProductId(element) {
   return element.querySelector("a[id]").id;
 }
 
-function extractProductTitle(element) {
+function extractProductName(element) {
   return element.querySelector("a[title]").title;
 }
 
-function writeProductToDB(id, title) {
+function writeProductToDB(id, name) {
   fetch(API_BASE_URL + "products", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ products: [{ id: id, name: title }] }),
+    body: JSON.stringify({ products: [{ id: id, name: name }] }),
   })
     .then((response) => response.json())
     .then((data) => console.log(data))
@@ -171,8 +171,8 @@ function getLatestProductElements() {
 function getLatestIds() {
   let latestElements = getLatestProductElements();
   let ids = [];
-  for (let i = 0; i < latestElements.length; i++) {
-    ids.push(extractProductId(latestElements[i]));
+  for (const element of latestElements) {
+    ids.push(extractProductId(element));
   }
   return ids;
 }
@@ -198,8 +198,8 @@ function hashCode(string) {
 
 function generateIdentifierForButtons(buttons) {
   let identifier = "";
-  for (let i = 0; i < buttons.length; i++) {
-    identifier += buttons[i].backgroundColor + buttons[i].link;
+  for (const element of buttons) {
+    identifier += element.backgroundColor + element.link;
   }
   // Create a hash of the identifier string to use as an id
   return "bc_" + hashCode(identifier);
@@ -253,7 +253,6 @@ async function getAllProducts() {
     },
   });
   const data = await reponse.json();
-  console.log(data.products);
   return data.products;
 }
 
@@ -261,12 +260,26 @@ async function main() {
   products = await getAllProducts();
   const resizeObserver = new ResizeObserver(async function () {
     products = await getAllProducts();
-    console.log("Resizer triggered");
     let latestIds = getLatestIds();
-    for (let i = 0; i < latestIds.length; i++) {
-      let currentProduct = products[latestIds[i]] || {};
-      let originalNumber = extractOriginalNumber(getLiItemById(latestIds[i]));
-      setButtonsForProduct(latestIds[i], [
+    for (const productId of latestIds) {
+      let currentLiItem = getLiItemById(productId);
+      let currentProduct = products[productId] || {};
+      let productName = extractProductName(currentLiItem);
+      let originalNumber = extractOriginalNumber(currentLiItem);
+
+      if (!products.hasOwnProperty(productId)) {
+        writeProductToDB(productId, productName);
+        let product = {
+          id: productId,
+          name: productName,
+          asin: undefined,
+          current_amazon_price: undefined,
+          current_amazon_price_timestamp: undefined,
+          brand_id: undefined,
+        };
+        products[productId] = product;
+      }
+      setButtonsForProduct(productId, [
         {
           backgroundColor: "red",
           link: getAmazonLink(currentProduct.asin || "", originalNumber),
