@@ -1,6 +1,7 @@
 import psycopg2
 import json
 import logging
+import os
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -33,12 +34,12 @@ def row_to_product(row: tuple):
 def lambda_handler(event, _context):
     try:
         conn = psycopg2.connect(
-            dbname="bazzingo",
-            user="postgres",
-            host="database-1.caesvsq2u1qo.eu-central-1.rds.amazonaws.com",
-            password="jcc3udm6Q]ujt^NQKpwG",
-            port="5432",
-            options="-c search_path=product-extension",
+            dbname=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            host=os.getenv("DB_HOST"),
+            password=os.getenv("DB_PASSWORD"),
+            port=os.getenv("DB_PORT"),
+            options=os.getenv("DB_OPTIONS"),
         )
         logger.info("Successfully connected to database.")
 
