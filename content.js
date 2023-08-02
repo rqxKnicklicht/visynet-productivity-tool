@@ -1,7 +1,11 @@
 const API_BASE_URL =
   "https://rls7a91cpd.execute-api.eu-central-1.amazonaws.com/dev/";
 let products;
-
+const API_KEY = "ENTER YOUR API KEY HERE";
+const HEADERS = {
+  "Content-Type": "application/json",
+  "x-api-key": API_KEY,
+};
 function createPopup(product) {
   // Create a new div for the Popup
   const popup = document.createElement("div");

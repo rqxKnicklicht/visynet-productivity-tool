@@ -17,8 +17,13 @@ sample_product = {"id": "435345", "title": "TABLETAS DE LIMPIEZA ESPRESSO-"}
 #     },
 # )
 
-# # res = requests.get(API_BASE_URL + "products/3263893")
+API_KEY = "0KKWtc1G6O5j0To4qSKPw2T0CpsreNiU1ufAmo4z"
+HEADERS = {
+    "Content-Type": "application/json",
+    "x-api-key": API_KEY,
+}
+res = requests.get(API_BASE_URL + "products/3263893", headers=HEADERS)
 
-res = requests.get(API_BASE_URL + "products")
+# res = requests.get(API_BASE_URL + "products")
 print(res.json())
 # print(len(res.json()["products"]))

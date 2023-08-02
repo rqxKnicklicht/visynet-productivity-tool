@@ -1,7 +1,8 @@
-import psycopg2
 import json
 import logging
 import os
+
+import psycopg2
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -47,7 +48,7 @@ def lambda_handler(event, _context):
         product_id = event["pathParameters"]["product-id"]
 
         if event["httpMethod"] == "GET":
-            logger.info(f"GET request received for product with id: '{product_id}'.")
+            logger.info("GET request received for product with ID: '%s'.", product_id)
             with conn:
                 with conn.cursor() as cursor:
                     cursor.execute(
@@ -62,8 +63,9 @@ def lambda_handler(event, _context):
                         200, {"product": row_to_product(cursor.fetchone())}
                     )
         elif event["httpMethod"] == "PATCH":
-            logger.info(f"PATCH request received for product with id: '{product_id}'.")
             body: dict = json.loads(event["body"])
+            logger.info("PATCH request received for product with ID: '%s'.", product_id)
+            logger.debug("Request body: %s", body)
             allowed_columns = [
                 "title",
                 "asin",
@@ -108,7 +110,9 @@ def lambda_handler(event, _context):
                     )
 
         elif event["httpMethod"] == "DELETE":
-            logger.info(f"DELETE request received for product with id: '{product_id}'.")
+            logger.info(
+                "DELETE request received for product with ID: '%s'.", product_id
+            )
             with conn:
                 with conn.cursor() as cursor:
                     cursor.execute(
@@ -122,7 +126,9 @@ def lambda_handler(event, _context):
                         200, {"message": "Product deleted successfully, if it existed."}
                     )
     except Exception:
-        logger.exception("An error occurred while executing the lambda function: ")
+        logger.exception(
+            "An unexpected error occured while executing the lambda function: "
+        )
         return build_response(500, {"message": "Internal server error."})
     finally:
         conn.close()
