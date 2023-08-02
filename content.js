@@ -1,11 +1,12 @@
 const API_BASE_URL =
   "https://rls7a91cpd.execute-api.eu-central-1.amazonaws.com/dev/";
 let products;
-const API_KEY = "ENTER YOUR API KEY HERE";
+const API_KEY = "";
 const HEADERS = {
   "Content-Type": "application/json",
   "x-api-key": API_KEY,
 };
+
 function createPopup(product) {
   // Create a new div for the Popup
   const popup = document.createElement("div");
@@ -270,9 +271,21 @@ async function getAllProducts() {
   try {
     const reponse = await fetch(API_BASE_URL + "products", {
       method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: HEADERS,
+    });
+    const data = await reponse.json();
+    return data.products;
+  } catch (error) {
+    console.error("Error while fetching all products:", error);
+  }
+}
+
+async function getProductsById(listOfIds) {
+  try {
+    const reponse = await fetch(API_BASE_URL + "products", {
+      method: "GET",
+      headers: HEADERS,
+      data: JSON.stringify({ product_ids: listOfIds }),
     });
     const data = await reponse.json();
     return data.products;
@@ -282,16 +295,16 @@ async function getAllProducts() {
 }
 
 async function main() {
-  products = await getAllProducts();
-  console.log(products);
+  // products = await getAllProducts();
+  // console.log(products);
 
   let debounceTimeout;
   const debouncedObserverCallback = async function () {
     clearTimeout(debounceTimeout);
 
     debounceTimeout = setTimeout(async function () {
-      products = await getAllProducts();
       let latestIds = getLatestIds();
+      products = await getProductsById(latestIds);
       for (const productId of latestIds) {
         let currentLiItem = getLiItemById(productId);
         let currentProduct = products[productId] || {};

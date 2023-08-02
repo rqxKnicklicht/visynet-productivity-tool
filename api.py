@@ -22,8 +22,12 @@ HEADERS = {
     "Content-Type": "application/json",
     "x-api-key": API_KEY,
 }
-res = requests.get(API_BASE_URL + "products/3263893", headers=HEADERS)
+# res = requests.get(API_BASE_URL + "products/3263893", headers=HEADERS)
 
-# res = requests.get(API_BASE_URL + "products")
+res = requests.get(
+    API_BASE_URL + "products",
+    headers=HEADERS,
+    json={"product_ids": ["3263893"]},
+)
 print(res.json())
 # print(len(res.json()["products"]))

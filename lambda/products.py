@@ -1,8 +1,9 @@
-import psycopg2
-from psycopg2.errors import UniqueViolation
 import json
 import logging
 import os
+
+import psycopg2
+from psycopg2.errors import UniqueViolation
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -51,7 +52,7 @@ def lambda_handler(event, _context):
                     product = body.get("product")
                     product_title, product_id = product.get("title"), product.get("id")
                     logger.info(
-                        f"POST request received for product with id '{product_id}'."
+                        "POST request received for product with id '%s'.", product_id
                     )
                     cursor.execute(
                         """
@@ -71,18 +72,26 @@ def lambda_handler(event, _context):
                     )
         elif event["httpMethod"] == "GET":
             logger.info("GET request received.")
+
+            query = """
+                    SELECT id, title, asin, current_amazon_price, current_amazon_price_timestamp, brand_id, visynet_max_price FROM product
+                    """
+
+            if event["body"]:
+                body: dict = json.loads(event["body"])
+                product_ids = body.get("product_ids")
+                if product_ids:
+                    products_ids_string = "'" + "', '".join(product_ids) + "'"
+                    query += f" WHERE id IN ({products_ids_string})"
+
             with conn:
                 with conn.cursor() as cursor:
-                    cursor.execute(
-                        """
-                        SELECT id, title, asin, current_amazon_price, current_amazon_price_timestamp, brand_id, visynet_max_price FROM product;                         
-                        """
-                    )
+                    cursor.execute(query)
                     products = {}
                     for row in cursor.fetchall():
                         product = row_to_product(row)
                         products[product.get("id")] = product
-                    logger.info(f"Found {len(products)} products.")
+                    logger.info("Found %s products.", len(products))
                     return build_response(200, {"products": products})
     except UniqueViolation:
         return build_response(409, {"message": "Product already exists."})
@@ -91,3 +100,4 @@ def lambda_handler(event, _context):
         return build_response(500, {"message": "Internal server error."})
     finally:
         conn.close()
+        logger.info("Successfully closed database connection.")
