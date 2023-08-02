@@ -19,7 +19,7 @@ def build_response(status_code, content):
     }
 
 
-def row_to_product(row: tuple):
+def row_to_product(row):
     return {
         "id": row[0],
         "title": row[1],
@@ -29,6 +29,7 @@ def row_to_product(row: tuple):
         if row[4]
         else None,
         "brand_id": row[5],
+        "visynet_max_price": float(row[6]) if row[6] else None,
     }
 
 
@@ -56,7 +57,7 @@ def lambda_handler(event, _context):
                         """
                         INSERT INTO product (id, title)
                         VALUES (%s, %s)
-                        RETURNING *;
+                        RETURNING id, title, asin, current_amazon_price, current_amazon_price_timestamp, brand_id, visynet_max_price;
                         """,
                         (product_id, product_title),
                     )
@@ -74,7 +75,7 @@ def lambda_handler(event, _context):
                 with conn.cursor() as cursor:
                     cursor.execute(
                         """
-                        SELECT id, title, asin, current_amazon_price, current_amazon_price_timestamp, brand_id FROM product                         
+                        SELECT id, title, asin, current_amazon_price, current_amazon_price_timestamp, brand_id, visynet_max_price FROM product;                         
                         """
                     )
                     products = {}

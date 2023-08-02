@@ -37,13 +37,13 @@ function createPopup(product) {
   const maxPrice = document.createElement("input");
   maxPrice.type = "text";
   maxPrice.placeholder = "Kauf lohnt ab €";
-  maxPrice.value = product["current_amazon_price"];
+  maxPrice.value = product["visynet_max_price"];
 
   // Create a button to close the Popup
   const sendButton = document.createElement("button");
   sendButton.textContent = "Speichern";
-  sendButton.onclick = function () {
-    fetch(API_BASE_URL + "products/" + product["id"], {
+  sendButton.onclick = async function () {
+    let response = await fetch(API_BASE_URL + "products/" + product["id"], {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
@@ -52,11 +52,14 @@ function createPopup(product) {
         asin: asin.value,
         current_amazon_price: currentAmazonPrice.value,
         current_amazon_price_timestamp: new Date().toISOString(),
+        visynet_max_price: maxPrice.value,
       }),
-    })
-      .then((response) => response.json())
-      .then((data) => console.log(data))
-      .catch((error) => console.error("Error:", error));
+    });
+    let data = await response.json();
+    let patchedProduct = data["product"];
+    let patchedProductId = patchedProduct["id"];
+    products[patchedProductId] = patchedProduct;
+    setPriceColor(patchedProductId, patchedProduct["visynet_max_price"] || 0);
   };
   const closeButton = document.createElement("button");
   closeButton.textContent = "Schließen";
@@ -89,7 +92,6 @@ function getButton(buttonAttributes) {
       window.open(buttonAttributes.link, "_blank");
     });
   }
-  button.innerHTML = "&#9432;";
   return button;
 }
 
@@ -123,21 +125,24 @@ function extractProductId(element) {
   return element.querySelector("a[id]").id;
 }
 
-function extractProductName(element) {
+function extractProductTitle(element) {
   return element.querySelector("a[title]").title;
 }
 
-function writeProductToDB(id, name) {
-  fetch(API_BASE_URL + "products", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ products: [{ id: id, name: name }] }),
-  })
-    .then((response) => response.json())
-    .then((data) => console.log(data))
-    .catch((error) => console.error("Error:", error));
+async function writeProductToDB(id, title) {
+  try {
+    const response = await fetch(API_BASE_URL + "products", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ product: { id: id, title: title } }),
+    });
+    const data = await response.json();
+    return data["product"];
+  } catch (error) {
+    console.error("Error while creating product:", error);
+  }
 }
 
 async function getProduct(id) {
@@ -149,13 +154,6 @@ async function getProduct(id) {
     console.error("Error:", error);
   }
 }
-
-// let colors = ["red", "green"];
-//     let randomColor = colors[Math.floor(Math.random() * colors.length)];
-//     let imageElement = elements[i].querySelector("img");
-//     if (imageElement) {
-//         imageElement.style.boxShadow = "0 0 0 1px " + randomColor;
-//     }
 
 function getLiItemById(id) {
   let aTag = document.getElementById(id);
@@ -176,6 +174,25 @@ function getLatestIds() {
   }
   return ids;
 }
+
+function setPriceColor(productId, comparePrice) {
+  try {
+    let li = getLiItemById(productId);
+    let priceElement = li.querySelector(".price");
+    let price = parseFloat(priceElement.innerText.replace(/[^0-9.]/g, ""));
+    let color = "";
+    if (price / 100 < comparePrice) {
+      color = "green";
+    } else {
+      color = "red";
+    }
+    if (comparePrice == 0) color = "black";
+    priceElement.style.color = color;
+  } catch (error) {
+    console.error("Error while setting price color: " + productId, error);
+  }
+}
+
 /**
  * This function calculates a hash code for a given input string. It uses a
  * hashing known as djb2."
@@ -246,53 +263,60 @@ function getAmazonLink(asin, originalNumber) {
  *                             data after the API response has been received and parsed.
  */
 async function getAllProducts() {
-  const reponse = await fetch(API_BASE_URL + "products", {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
-  const data = await reponse.json();
-  return data.products;
+  try {
+    const reponse = await fetch(API_BASE_URL + "products", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    const data = await reponse.json();
+    return data.products;
+  } catch (error) {
+    console.error("Error while fetching all products:", error);
+  }
 }
 
 async function main() {
   products = await getAllProducts();
-  const resizeObserver = new ResizeObserver(async function () {
-    products = await getAllProducts();
-    let latestIds = getLatestIds();
-    for (const productId of latestIds) {
-      let currentLiItem = getLiItemById(productId);
-      let currentProduct = products[productId] || {};
-      let productName = extractProductName(currentLiItem);
-      let originalNumber = extractOriginalNumber(currentLiItem);
+  console.log(products);
 
-      if (!products.hasOwnProperty(productId)) {
-        writeProductToDB(productId, productName);
-        let product = {
-          id: productId,
-          name: productName,
-          asin: undefined,
-          current_amazon_price: undefined,
-          current_amazon_price_timestamp: undefined,
-          brand_id: undefined,
-        };
-        products[productId] = product;
+  let debounceTimeout;
+  const debouncedObserverCallback = async function () {
+    clearTimeout(debounceTimeout);
+
+    debounceTimeout = setTimeout(async function () {
+      products = await getAllProducts();
+      let latestIds = getLatestIds();
+      for (const productId of latestIds) {
+        let currentLiItem = getLiItemById(productId);
+        let currentProduct = products[productId] || {};
+        let productTitle = extractProductTitle(currentLiItem);
+        let originalNumber = extractOriginalNumber(currentLiItem);
+        setPriceColor(productId, currentProduct.visynet_max_price || 0);
+
+        if (!products.hasOwnProperty(productId)) {
+          let product = await writeProductToDB(productId, productTitle);
+          products[productId] = product;
+        }
+        setButtonsForProduct(productId, [
+          {
+            backgroundColor: "grey",
+            link: getAmazonLink(currentProduct.asin || "", originalNumber),
+          },
+          {
+            backgroundColor: "grey",
+            functionToExecute: () => createPopup(currentProduct),
+          },
+        ]);
       }
-      setButtonsForProduct(productId, [
-        {
-          backgroundColor: "red",
-          link: getAmazonLink(currentProduct.asin || "", originalNumber),
-        },
-        {
-          backgroundColor: "green",
-          functionToExecute: () => createPopup(currentProduct),
-        },
-      ]);
-    }
-  });
+    }, 1000); // 1-second delay
+  };
+
+  const resizeObserver = new ResizeObserver(debouncedObserverCallback);
   resizeObserver.observe(document.body);
 }
+
 function insertStyleElement() {
   // Create a new style element
   let style = document.createElement("style");

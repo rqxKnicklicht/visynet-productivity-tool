@@ -19,15 +19,16 @@ def build_response(status_code, content):
 
 
 def row_to_product(row: tuple):
-    return row[0], {
+    return {
         "id": row[0],
-        "name": row[1],
+        "title": row[1],
         "asin": row[2],
         "current_amazon_price": float(row[3]) if row[3] else None,
         "current_amazon_timestamp": row[4].strftime("%Y-%m-%d %H:%M:%S")
         if row[4]
         else None,
         "brand_id": row[5],
+        "visynet_max_price": float(row[6]) if row[6] else None,
     }
 
 
@@ -49,27 +50,60 @@ def lambda_handler(event, _context):
             logger.info(f"GET request received for product with id: '{product_id}'.")
             with conn:
                 with conn.cursor() as cursor:
-                    cursor.execute(f"SELECT * FROM product WHERE id = '{product_id}'")
+                    cursor.execute(
+                        """
+                        SELECT id, title, asin, current_amazon_price, current_amazon_price_timestamp, brand_id, visynet_max_price
+                        FROM product
+                        WHERE id = %s;
+                        """,
+                        (product_id,),
+                    )
                     return build_response(
                         200, {"product": row_to_product(cursor.fetchone())}
                     )
         elif event["httpMethod"] == "PATCH":
             logger.info(f"PATCH request received for product with id: '{product_id}'.")
             body: dict = json.loads(event["body"])
-            set_clause = ",".join([f"{key} = %s" for key in body.keys()])
-            parameters = tuple(list(body.values()))
+            allowed_columns = [
+                "title",
+                "asin",
+                "brand_id",
+                "visynet_max_price",
+                "current_amazon_price",
+                "current_amazon_timestamp",
+            ]
+            body = {key: value for key, value in body.items() if key in allowed_columns}
+
+            set_clause = ", ".join([f"{key} = %s" for key in body.keys()])
+            parameters = tuple(body.values())
+            product_id_parameter = (product_id,)
+            parameters += product_id_parameter
+
             with conn:
                 with conn.cursor() as cursor:
                     cursor.execute(
-                        f"UPDATE product SET {set_clause} WHERE id = '{product_id}'",
+                        f"""
+                        UPDATE product
+                        SET {set_clause}
+                        WHERE id = %s;
+                        """,
                         parameters,
                     )
-                    cursor.execute(f"SELECT * FROM product WHERE id = '{product_id}'")
+                    cursor.execute(
+                        """
+                        SELECT *
+                        FROM product
+                        WHERE id = %s;
+                        """,
+                        product_id_parameter,
+                    )
+                    updated_product = row_to_product(cursor.fetchone())
+
                     return build_response(
                         200,
                         {
                             "message": "Product updated successfully.",
-                            "product": row_to_product(cursor.fetchone()),
+                            "product": updated_product,
                         },
                     )
 
@@ -77,7 +111,13 @@ def lambda_handler(event, _context):
             logger.info(f"DELETE request received for product with id: '{product_id}'.")
             with conn:
                 with conn.cursor() as cursor:
-                    cursor.execute(f"DELETE FROM product WHERE id = '{product_id}'")
+                    cursor.execute(
+                        """
+                        DELETE FROM product
+                        WHERE id = %s;
+                        """,
+                        (product_id,),
+                    )
                     return build_response(
                         200, {"message": "Product deleted successfully, if it existed."}
                     )
