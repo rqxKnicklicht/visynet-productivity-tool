@@ -8,13 +8,16 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 
-def build_response(status_code, content):
+def build_response(status_code, content={}):
     return {
         "statusCode": status_code,
         "body": json.dumps(content),
         "headers": {
             "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Credentials": True,
+            "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Credentials": "true",
+            # "Access-Control-Expose-Headers": "Authorization",  # Optional
         },
     }
 
@@ -30,11 +33,14 @@ def row_to_product(row: tuple):
         else None,
         "brand_id": row[5],
         "visynet_max_price": float(row[6]) if row[6] else None,
+        "original_number": row[7],
     }
 
 
 def lambda_handler(event, _context):
     try:
+        http_method = event["httpMethod"]
+        logger.info("Received {} request.".format(http_method))
         conn = psycopg2.connect(
             dbname=os.getenv("DB_NAME"),
             user=os.getenv("DB_USER"),
@@ -47,13 +53,13 @@ def lambda_handler(event, _context):
 
         product_id = event["pathParameters"]["product-id"]
 
-        if event["httpMethod"] == "GET":
+        if http_method == "GET":
             logger.info("GET request received for product with ID: '%s'.", product_id)
             with conn:
                 with conn.cursor() as cursor:
                     cursor.execute(
                         """
-                        SELECT id, title, asin, current_amazon_price, current_amazon_price_timestamp, brand_id, visynet_max_price
+                        SELECT id, title, asin, current_amazon_price, current_amazon_price_timestamp, brand_id, visynet_max_price, original_number
                         FROM product
                         WHERE id = %s;
                         """,
@@ -62,7 +68,7 @@ def lambda_handler(event, _context):
                     return build_response(
                         200, {"product": row_to_product(cursor.fetchone())}
                     )
-        elif event["httpMethod"] == "PATCH":
+        elif http_method == "PATCH":
             body: dict = json.loads(event["body"])
             logger.info("PATCH request received for product with ID: '%s'.", product_id)
             logger.debug("Request body: %s", body)
@@ -73,6 +79,7 @@ def lambda_handler(event, _context):
                 "visynet_max_price",
                 "current_amazon_price",
                 "current_amazon_timestamp",
+                "original_number",
             ]
             body = {key: value for key, value in body.items() if key in allowed_columns}
 
@@ -109,7 +116,7 @@ def lambda_handler(event, _context):
                         },
                     )
 
-        elif event["httpMethod"] == "DELETE":
+        elif http_method == "DELETE":
             logger.info(
                 "DELETE request received for product with ID: '%s'.", product_id
             )
@@ -125,6 +132,42 @@ def lambda_handler(event, _context):
                     return build_response(
                         200, {"message": "Product deleted successfully, if it existed."}
                     )
+        elif http_method == "PUT":
+            body: dict = json.loads(event["body"])
+            product = body["product"]
+            product_tuple = (
+                product["id"],
+                product["title"],
+                product["asin"],
+                product["current_amazon_price"],
+                product["current_amazon_timestamp"],
+                product["brand_id"],
+                product["visynet_max_price"],
+                product["original_number"],
+            )
+            with conn:
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        """
+                        INSERT INTO product
+                        (id, title, asin, current_amazon_price, current_amazon_price_timestamp, brand_id, visynet_max_price, original_number)
+                        VALUES
+                        (%s, %s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (id) DO UPDATE SET
+                        title = EXCLUDED.title,
+                        asin = EXCLUDED.asin,
+                        current_amazon_price = EXCLUDED.current_amazon_price,
+                        current_amazon_price_timestamp = EXCLUDED.current_amazon_price_timestamp,
+                        brand_id = EXCLUDED.brand_id,
+                        visynet_max_price = EXCLUDED.visynet_max_price,
+                        original_number = EXCLUDED.original_number;
+                        """,
+                        product_tuple,
+                    )
+                    return build_response(204)
+
+        else:
+            return build_response(405, {"message": "Method not allowed."})
     except Exception:
         logger.exception(
             "An unexpected error occured while executing the lambda function: "

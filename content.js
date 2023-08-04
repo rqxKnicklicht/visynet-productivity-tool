@@ -8,6 +8,16 @@ const HEADERS = {
 };
 
 function createPopup(product) {
+  // Create an overlay
+  const overlay = document.createElement("div");
+  overlay.style.position = "fixed";
+  overlay.style.top = "0";
+  overlay.style.left = "0";
+  overlay.style.width = "100%";
+  overlay.style.height = "100%";
+  overlay.style.backgroundColor = "rgba(0,0,0,0.5)";
+  overlay.style.zIndex = "999";
+  document.body.appendChild(overlay);
   // Create a new div for the Popup
   const popup = document.createElement("div");
   popup.style.position = "fixed";
@@ -21,7 +31,27 @@ function createPopup(product) {
   popup.style.flexDirection = "column";
   popup.style.gap = "10px";
   popup.style.width = "300px"; // Or whatever width you desire
+  // Create title and id
+  const title = document.createElement("h2");
+  title.textContent = product["title"];
+  title.style.textAlign = "center";
 
+  const id = document.createElement("p");
+  id.textContent = `Product ID: ${product["id"]}`;
+  id.style.textAlign = "center";
+
+  const originalNumber = document.createElement("p");
+  originalNumber.textContent = `Originalnummer: ${product["original_number"]}`;
+  originalNumber.style.textAlign = "center";
+
+  // Add the Originalnummer and copy button to the Popup
+
+  // ...rest of the element creations...
+
+  // Add the title, id, labels, text fields, and the close button to the Popup
+  popup.appendChild(title);
+  popup.appendChild(id);
+  popup.appendChild(originalNumber);
   // Create labels and text fields
   const asinLabel = document.createElement("label");
   asinLabel.textContent = "Amazon ASIN";
@@ -48,28 +78,52 @@ function createPopup(product) {
   const sendButton = document.createElement("button");
   sendButton.textContent = "Speichern";
   sendButton.onclick = async function () {
-    let response = await fetch(API_BASE_URL + "products/" + product["id"], {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        asin: asin.value,
-        current_amazon_price: currentAmazonPrice.value,
-        current_amazon_price_timestamp: new Date().toISOString(),
-        visynet_max_price: maxPrice.value,
-      }),
-    });
-    let data = await response.json();
-    let patchedProduct = data["product"];
-    let patchedProductId = patchedProduct["id"];
-    products[patchedProductId] = patchedProduct;
-    setPriceColor(patchedProductId, patchedProduct["visynet_max_price"] || 0);
+    try {
+      let response = await fetch(API_BASE_URL + "products/" + product["id"], {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          asin: asin.value,
+          current_amazon_price: currentAmazonPrice.value,
+          current_amazon_price_timestamp: new Date().toISOString(),
+          visynet_max_price: maxPrice.value,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      let data = await response.json();
+      let patchedProduct = data["product"];
+      let patchedProductId = patchedProduct["id"];
+      products[patchedProductId] = patchedProduct;
+      setPriceColor(patchedProductId, patchedProduct["visynet_max_price"] || 0);
+      setButtonsForProduct(patchedProductId, [
+        {
+          backgroundColor: "grey",
+          link: getAmazonLink(patchedProduct["asin"]),
+        },
+        {
+          backgroundColor: "grey",
+          functionToExecute: () => createPopup(currentProduct),
+        },
+      ]);
+
+      alert("Product saved successfully!"); // Alert the user
+    } catch (error) {
+      console.error("An error occurred:", error);
+      alert("An error occurred while saving the product. Please try again."); // Alert the user
+    }
   };
+
   const closeButton = document.createElement("button");
   closeButton.textContent = "Schließen";
   closeButton.onclick = function () {
     document.body.removeChild(popup);
+    document.body.removeChild(overlay);
   };
 
   // Add the labels, text fields, and the close button to the Popup
@@ -134,14 +188,16 @@ function extractProductTitle(element) {
   return element.querySelector("a[title]").title;
 }
 
-async function writeProductToDB(id, title) {
+async function writeProductToDB(id, title, originalNumber) {
   try {
     const response = await fetch(API_BASE_URL + "products", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ product: { id: id, title: title } }),
+      body: JSON.stringify({
+        product: { id: id, title: title, original_number: originalNumber },
+      }),
     });
     const data = await response.json();
     return data["product"];
@@ -184,9 +240,21 @@ function setPriceColor(productId, comparePrice) {
   try {
     let li = getLiItemById(productId);
     let priceElement = li.querySelector(".price");
-    let price = parseFloat(priceElement.innerText.replace(/[^0-9.]/g, ""));
+    let priceNodes = Array.from(priceElement.childNodes);
+    let prices = priceNodes
+      .filter(
+        (node) =>
+          node.nodeType === Node.TEXT_NODE ||
+          node.nodeType === Node.ELEMENT_NODE
+      )
+      .map((node) =>
+        parseFloat(node.textContent.replace(/[^0-9.,]/g, "").replace(",", "."))
+      );
+    // Use the last price (i.e., the second price if it exists)
+    let price = prices[prices.length - 1];
+
     let color = "";
-    if (price / 100 < comparePrice) {
+    if (price < comparePrice) {
       color = "green";
     } else {
       color = "red";
@@ -198,43 +266,15 @@ function setPriceColor(productId, comparePrice) {
   }
 }
 
-/**
- * This function calculates a hash code for a given input string. It uses a
- * hashing known as djb2."
- *
- * @param {String} string The input string to be hashed.
- *
- * @returns {Number} The computed hash code of the input string as a 32-bit integer.
- */
-function hashCode(string) {
-  let hash = 0,
-    i,
-    chr;
-  for (i = 0; i < string.length; i++) {
-    chr = string.charCodeAt(i);
-    hash = (hash << 5) - hash + chr;
-    hash |= 0; // Convert to 32bit integer
-  }
-  return hash;
-}
-
-function generateIdentifierForButtons(buttons) {
-  let identifier = "";
-  for (const element of buttons) {
-    identifier += element.backgroundColor + element.link;
-  }
-  // Create a hash of the identifier string to use as an id
-  return "bc_" + hashCode(identifier);
-}
-
 function setButtonsForProduct(id, buttons) {
   let li = getLiItemById(id);
   let buttonsContainer = getButtonContainer(buttons);
-  let uniqueId = generateIdentifierForButtons(buttons);
-  buttonsContainer.id = uniqueId;
-  let exisingButtonsContainer = li.querySelector("#" + uniqueId);
+  buttonsContainer.id = "buttons-container";
+  let exisingButtonsContainer = li.querySelector("#buttons-container");
   if (!exisingButtonsContainer) {
     li.appendChild(buttonsContainer);
+  } else {
+    exisingButtonsContainer.replaceWith(buttonsContainer);
   }
 }
 
@@ -250,7 +290,7 @@ function setButtonsForProduct(id, buttons) {
  *                      is provided. If ASIN is not provided, it returns a URL that
  *                      initiates a search on Amazon.de with the provided original number.
  */
-function getAmazonLink(asin, originalNumber) {
+function getAmazonLink(asin, originalNumber = undefined) {
   if (asin != "") {
     return "https://www.amazon.de/dp/" + asin;
   } else {
@@ -295,9 +335,6 @@ async function getProductsById(listOfIds) {
 }
 
 async function main() {
-  // products = await getAllProducts();
-  // console.log(products);
-
   let debounceTimeout;
   const debouncedObserverCallback = async function () {
     clearTimeout(debounceTimeout);
@@ -313,7 +350,11 @@ async function main() {
         setPriceColor(productId, currentProduct.visynet_max_price || 0);
 
         if (!products.hasOwnProperty(productId)) {
-          let product = await writeProductToDB(productId, productTitle);
+          let product = await writeProductToDB(
+            productId,
+            productTitle,
+            originalNumber
+          );
           products[productId] = product;
         }
         setButtonsForProduct(productId, [
